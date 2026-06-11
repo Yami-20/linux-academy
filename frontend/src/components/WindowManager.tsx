@@ -7,6 +7,7 @@ const DraggableWindow = ({ win }: { win: OSWindow }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [content, setContent] = useState(win.content);
+  const [saved, setSaved] = useState(false);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     focusWindow(win.id);
@@ -24,41 +25,71 @@ const DraggableWindow = ({ win }: { win: OSWindow }) => {
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
 
-  const handleSave = () => executeCommand(`echo "${content}" > ${win.title}`);
+  const handleSave = async () => {
+    // Write content line-by-line using >> so multiline content is preserved
+    // First, overwrite with the first line, then append the rest
+    const lines = content.split('\n');
+    // Use the API directly to write the full content atomically
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Write first line with >, then append remaining lines
+        body: JSON.stringify({ command: `echo ${JSON.stringify(lines[0] ?? '')} > ${win.title}` })
+      });
+      await res.json();
+      for (let i = 1; i < lines.length; i++) {
+        const appendRes = await fetch('http://127.0.0.1:8000/api/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: `echo ${JSON.stringify(lines[i])} >> ${win.title}` })
+        });
+        await appendRes.json();
+      }
+      // Sync world state
+      useEngineStore.getState().syncWorld();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch {
+      // fallback: best-effort single echo
+      executeCommand(`echo ${JSON.stringify(content)} > ${win.title}`);
+    }
+  };
 
   return (
-    <div 
+    <div
       className="absolute flex flex-col bg-white border-4 border-black rounded-lg shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)] overflow-hidden pointer-events-auto font-mono"
-      style={{ left: win.x, top: win.y, zIndex: win.zIndex, width: 400, height: 300 }}
+      style={{ left: win.x, top: win.y, zIndex: win.zIndex, width: 420, height: 320 }}
       onPointerDown={() => focusWindow(win.id)}
     >
-      {/* RPG Menu Header */}
-      <div 
+      {/* Header */}
+      <div
         className="flex justify-between items-center bg-gray-200 border-b-4 border-black px-4 py-2 cursor-move select-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <span className="text-black font-bold text-lg pointer-events-none uppercase tracking-widest">
-          {win.title} {win.type === 'editor' && " [EDIT]"}
+        <span className="text-black font-bold text-sm pointer-events-none uppercase tracking-widest truncate max-w-[280px]">
+          {win.title}{win.type === 'editor' && ' [EDIT]'}
         </span>
-        <button onClick={() => closeWindow(win.id)} className="text-black hover:text-red-600 font-bold text-xl leading-none">X</button>
+        <button onClick={() => closeWindow(win.id)} className="text-black hover:text-red-600 font-bold text-xl leading-none ml-2">✕</button>
       </div>
 
-      {/* Menu Body */}
-      <div className="flex-1 flex flex-col p-4 bg-white text-black">
+      {/* Body */}
+      <div className="flex-1 flex flex-col p-4 bg-white text-black min-h-0">
         {win.type === 'editor' ? (
           <>
-            <textarea 
+            <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="flex-1 w-full bg-transparent text-black font-bold text-base resize-none outline-none leading-relaxed"
+              className="flex-1 w-full bg-transparent text-black font-mono text-sm resize-none outline-none leading-relaxed"
               spellCheck={false}
             />
-            <div className="flex justify-end pt-2 mt-2">
-              <button 
+            <div className="flex justify-end items-center gap-3 pt-2 mt-2 border-t border-gray-200 shrink-0">
+              {saved && <span className="text-green-600 text-xs font-bold">✓ Saved!</span>}
+              <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-white border-4 border-black text-black font-bold uppercase hover:bg-gray-200 active:translate-y-1 active:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                className="px-4 py-1.5 bg-white border-4 border-black text-black font-bold uppercase text-sm hover:bg-gray-200 active:translate-y-0.5 active:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
               >
                 SAVE
               </button>

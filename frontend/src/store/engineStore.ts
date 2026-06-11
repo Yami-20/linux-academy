@@ -4,7 +4,6 @@ export interface FileNode { name: string; is_dir: boolean; }
 export interface CommandLog { id: string; command: string; output: string; isError: boolean; }
 export interface OSWindow { id: string; title: string; content: string; type: 'editor' | 'app'; x: number; y: number; zIndex: number; }
 
-// ─── Zone definitions (Stardew-style areas unlocked as you level up) ──────────
 export interface Zone {
   id: string;
   name: string;
@@ -15,14 +14,13 @@ export interface Zone {
 }
 
 export const ZONES: Zone[] = [
-  { id: 'home',     name: 'Home Base',      bgColor: '#4a7c4e', borderColor: '#2d5230', unlockLevel: 1,  description: 'Your starting zone.' },
-  { id: 'fortress', name: 'Fortress',        bgColor: '#6b4c8a', borderColor: '#3d2a52', unlockLevel: 5,  description: 'A fortified directory zone.' },
-  { id: 'projects', name: 'Projects Lab',    bgColor: '#c97c2e', borderColor: '#7a4a18', unlockLevel: 10, description: 'Where builds are made.' },
-  { id: 'archives', name: 'Data Archives',   bgColor: '#2e7a8a', borderColor: '#184a52', unlockLevel: 15, description: 'Ancient file repositories.' },
-  { id: 'core',     name: 'System Core',     bgColor: '#8a2e2e', borderColor: '#521818', unlockLevel: 20, description: 'The heart of the system.' },
+  { id: 'home',     name: 'Home Base',    bgColor: '#4a7c4e', borderColor: '#2d5230', unlockLevel: 1,  description: 'Your starting zone.' },
+  { id: 'fortress', name: 'Fortress',      bgColor: '#6b4c8a', borderColor: '#3d2a52', unlockLevel: 5,  description: 'A fortified directory zone.' },
+  { id: 'projects', name: 'Projects Lab',  bgColor: '#c97c2e', borderColor: '#7a4a18', unlockLevel: 10, description: 'Where builds are made.' },
+  { id: 'archives', name: 'Data Archives', bgColor: '#2e7a8a', borderColor: '#184a52', unlockLevel: 15, description: 'Ancient file repositories.' },
+  { id: 'core',     name: 'System Core',   bgColor: '#8a2e2e', borderColor: '#521818', unlockLevel: 20, description: 'The heart of the system.' },
 ];
 
-// ─── Quest system ──────────────────────────────────────────────────────────────
 export interface Quest {
   level: number;
   zone: string;
@@ -34,7 +32,7 @@ export interface Quest {
 }
 
 const QUESTS: Quest[] = [
-  // ── Zone 1: Home Base (levels 1-9) ──────────────────────────────────────
+  // ── Zone 1: Home Base (levels 1–9) ──────────────────────────────────────
   {
     level: 1, zone: 'home',
     title: 'Reconnaissance',
@@ -73,7 +71,7 @@ const QUESTS: Quest[] = [
     description: 'Move inside the "fortress" directory you just created.',
     hint: 'Use cd to change directory: cd fortress',
     xpReward: 200,
-    validate: (cmd, args, data) => cmd === 'cd' && data?.pwd?.endsWith('/fortress'),
+    validate: (cmd, _args, data) => cmd === 'cd' && data?.pwd?.endsWith('/fortress'),
   },
   {
     level: 6, zone: 'fortress',
@@ -81,15 +79,15 @@ const QUESTS: Quest[] = [
     description: 'Inside fortress, create an empty file named "log.txt" to track mutations.',
     hint: 'Use touch to create an empty file: touch log.txt',
     xpReward: 220,
-    validate: (cmd, args, data) => cmd === 'touch' && data?.contents?.some((f: FileNode) => f.name === 'log.txt' && !f.is_dir),
+    validate: (cmd, _args, data) => cmd === 'touch' && data?.contents?.some((f: FileNode) => f.name === 'log.txt' && !f.is_dir),
   },
   {
     level: 7, zone: 'fortress',
     title: 'Inject Access Key',
-    description: 'Write the text "CLASSIFIED" into log.txt using redirection.',
+    description: 'Write the text "CLASSIFIED" into log.txt using output redirection.',
     hint: 'Use echo with > redirection: echo CLASSIFIED > log.txt',
     xpReward: 250,
-    validate: (cmd, args) => cmd === 'echo' && args.includes('>') && args.some(a => a.includes('log.txt')),
+    validate: (cmd, args) => cmd === 'echo' && args.some(a => a === '>' || a.startsWith('>')) && args.some(a => a.includes('log.txt')),
   },
   {
     level: 8, zone: 'fortress',
@@ -105,22 +103,22 @@ const QUESTS: Quest[] = [
     description: 'Exit the fortress. Move back to the parent (home) directory.',
     hint: 'Use cd with double-dot to go up: cd ..',
     xpReward: 300,
-    validate: (cmd, args, data) => cmd === 'cd' && !data?.pwd?.endsWith('/fortress'),
+    validate: (cmd, _args, data) => cmd === 'cd' && !data?.pwd?.endsWith('/fortress'),
   },
 
-  // ── Zone 2: Projects Lab (levels 10-14) ────────────────────────────────
+  // ── Zone 2: Projects Lab (levels 10–14) ──────────────────────────────────
   {
     level: 10, zone: 'projects',
     title: 'Enter the Lab',
     description: 'The Projects Lab awaits. Navigate into the "projects" directory.',
     hint: 'Use cd projects',
     xpReward: 350,
-    validate: (cmd, args, data) => cmd === 'cd' && data?.pwd?.endsWith('/projects'),
+    validate: (cmd, _args, data) => cmd === 'cd' && data?.pwd?.endsWith('/projects'),
   },
   {
     level: 11, zone: 'projects',
     title: 'Detail Scan',
-    description: 'Run a long-format listing to see file permissions and metadata in the projects dir.',
+    description: 'Run a long-format listing to see file permissions and metadata.',
     hint: 'Use ls with the -l flag: ls -l',
     xpReward: 380,
     validate: (cmd, args) => cmd === 'ls' && args.includes('-l'),
@@ -131,7 +129,7 @@ const QUESTS: Quest[] = [
     description: 'Create two directories in one command: "src" and "bin".',
     hint: 'mkdir accepts multiple names: mkdir src bin',
     xpReward: 400,
-    validate: (cmd, args, data) =>
+    validate: (cmd, _args, data) =>
       cmd === 'mkdir' &&
       data?.contents?.some((f: FileNode) => f.name === 'src' && f.is_dir) &&
       data?.contents?.some((f: FileNode) => f.name === 'bin' && f.is_dir),
@@ -139,10 +137,10 @@ const QUESTS: Quest[] = [
   {
     level: 13, zone: 'projects',
     title: 'Deploy Source',
-    description: 'Create a file named "main.sh" inside the src directory using a path.',
+    description: 'Create a file named "main.sh" inside the src directory.',
     hint: 'Use touch with a path: touch src/main.sh',
     xpReward: 430,
-    validate: (cmd, args) => cmd === 'touch' && args.some(a => a.includes('src/main.sh') || a === 'main.sh'),
+    validate: (cmd, args) => cmd === 'touch' && args.some(a => a.includes('main.sh')),
   },
   {
     level: 14, zone: 'projects',
@@ -153,14 +151,14 @@ const QUESTS: Quest[] = [
     validate: (cmd, args) => cmd === 'echo' && args.some(a => a.includes('main.sh')),
   },
 
-  // ── Zone 3: Archives (levels 15-19) ────────────────────────────────────
+  // ── Zone 3: Archives (levels 15–19) ──────────────────────────────────────
   {
     level: 15, zone: 'archives',
     title: 'Reach the Archives',
     description: 'Navigate back home, then into the "docs" directory to access the archives.',
-    hint: 'cd ~ then cd docs, or cd ../../docs',
+    hint: 'First run: cd ~   then: cd docs',
     xpReward: 500,
-    validate: (cmd, args, data) => cmd === 'cd' && data?.pwd?.endsWith('/docs'),
+    validate: (cmd, _args, data) => cmd === 'cd' && data?.pwd?.endsWith('/docs'),
   },
   {
     level: 16, zone: 'archives',
@@ -173,7 +171,7 @@ const QUESTS: Quest[] = [
   {
     level: 17, zone: 'archives',
     title: 'Count the Lines',
-    description: 'Count how many lines are in README.txt using the word-count tool.',
+    description: 'Count how many lines are in README.txt.',
     hint: 'wc -l README.txt',
     xpReward: 580,
     validate: (cmd, args) => cmd === 'wc' && args.some(a => a.includes('README.txt')),
@@ -184,7 +182,7 @@ const QUESTS: Quest[] = [
     description: 'Copy README.txt to a new file named "README.bak" for backup.',
     hint: 'cp README.txt README.bak',
     xpReward: 620,
-    validate: (cmd, args, data) =>
+    validate: (cmd, _args, data) =>
       cmd === 'cp' && data?.contents?.some((f: FileNode) => f.name === 'README.bak'),
   },
   {
@@ -193,18 +191,19 @@ const QUESTS: Quest[] = [
     description: 'Rename README.bak to archive.txt using the move command.',
     hint: 'mv README.bak archive.txt',
     xpReward: 660,
-    validate: (cmd, args, data) =>
+    validate: (cmd, _args, data) =>
       cmd === 'mv' && data?.contents?.some((f: FileNode) => f.name === 'archive.txt'),
   },
 
-  // ── Zone 4: System Core — Boss levels (20-25) ──────────────────────────
+  // ── Zone 4: System Core — Boss levels (20–25) ────────────────────────────
   {
     level: 20, zone: 'core',
     title: 'Reach the Core',
-    description: 'Navigate back home. The system core is at ~/projects. Get there.',
-    hint: 'cd ~ to go home, then cd projects',
+    description: 'The system core is breached. Navigate to the projects directory: cd ~/projects or cd ~, then cd projects.',
+    hint: 'cd ~/projects  (or: cd ~ then cd projects)',
     xpReward: 700,
-    validate: (cmd, args, data) => cmd === 'cd' && (data?.pwd?.endsWith('/projects') || data?.pwd?.endsWith('/player')),
+    // Must end up specifically in /projects, not just any directory
+    validate: (cmd, _args, data) => cmd === 'cd' && data?.pwd?.endsWith('/home/player/projects'),
   },
   {
     level: 21, zone: 'core',
@@ -225,18 +224,18 @@ const QUESTS: Quest[] = [
   {
     level: 23, zone: 'core',
     title: 'Append to the Log',
-    description: 'Append "MISSION_COMPLETE" to log.txt without overwriting it. Use >> operator.',
-    hint: 'Navigate to fortress first, then: echo MISSION_COMPLETE >> log.txt',
+    description: 'Navigate back to the fortress directory, then append "MISSION_COMPLETE" to log.txt without overwriting it. Use the >> operator.',
+    hint: 'First: cd ~/fortress  then: echo MISSION_COMPLETE >> log.txt',
     xpReward: 850,
     validate: (cmd, args) => cmd === 'echo' && args.includes('>>'),
   },
   {
     level: 24, zone: 'core',
     title: 'Demolition (Boss)',
-    description: 'CRITICAL: The fortress is breached! Destroy it and everything inside. Use rm -rf.',
-    hint: 'From home: rm -rf fortress',
+    description: 'CRITICAL: The fortress is breached! Destroy it and everything inside using rm -rf. Navigate home first.',
+    hint: 'cd ~  then: rm -rf fortress',
     xpReward: 1000,
-    validate: (cmd, args, data) =>
+    validate: (cmd, _args, data) =>
       (cmd === 'rm' || cmd === 'rmdir') &&
       !data?.contents?.some((f: FileNode) => f.name === 'fortress'),
   },
@@ -250,7 +249,6 @@ const QUESTS: Quest[] = [
   },
 ];
 
-// ─── Store types ───────────────────────────────────────────────────────────────
 export interface EngineState {
   history: CommandLog[];
   currentPath: string;
@@ -351,11 +349,11 @@ export const useEngineStore = create<EngineState>((set, get) => ({
       }
 
       if (cmd === 'cat' && data?.status !== 'error') {
-        const filename = args.find(a => !a.startsWith('-')) || '';
+        const filename = args.find(a => !a.startsWith('-') && a !== '>' && a !== '>>') || '';
         if (filename) get().openWindow(filename, data.output, 'editor');
       }
 
-      // ── Evaluate quest ────────────────────────────────────────────────
+      // ── Evaluate quest ─────────────────────────────────────────────────
       const state = get();
       const quest = state.activeQuest;
       const level = state.gameLevel;
@@ -371,11 +369,12 @@ export const useEngineStore = create<EngineState>((set, get) => ({
 
       if (success && data?.status !== 'error') {
         newXp = state.xp + quest.xpReward;
-        while (newXp >= newXpToNext && newLevel < QUESTS.length) {
-          newXp -= newXpToNext;
-          newLevel++;
-          newXpToNext = getXpToNext(newLevel);
-        }
+        // Advance exactly one level per quest completion — XP just carries over
+        newLevel = Math.min(level + 1, QUESTS.length + 1);
+        newXpToNext = getXpToNext(newLevel);
+        // Carry leftover XP but never let it skip a level automatically
+        if (newXp >= newXpToNext) newXp = newXpToNext - 1;
+
         if (newLevel > QUESTS.length) {
           won = true;
           newLevel = QUESTS.length;

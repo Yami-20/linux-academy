@@ -6,50 +6,114 @@ export const TerminalHUD = () => {
   const [historyIdx, setHistIdx]  = useState(-1);
   const [localHistory, setLocalH] = useState<string[]>([]);
   const [showTip, setShowTip]     = useState(true);
+  const [tabCandidates, setTabCandidates] = useState<string[]>([]);
+  const [tabPrefix, setTabPrefix]         = useState('');
 
-  const history      = useEngineStore(s => s.history);
-  const currentPath  = useEngineStore(s => s.currentPath);
+  const history        = useEngineStore(s => s.history);
+  const currentPath    = useEngineStore(s => s.currentPath);
   const executeCommand = useEngineStore(s => s.executeCommand);
-  const scrollRef    = useRef<HTMLDivElement>(null);
-  const inputRef     = useRef<HTMLInputElement>(null);
+  const scrollRef      = useRef<HTMLDivElement>(null);
+  const inputRef       = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [history]);
 
-  // Auto-hide tip after first command
   useEffect(() => {
     if (history.length > 0) setShowTip(false);
   }, [history]);
+
+  // Clear tab candidates when user types normally
+  useEffect(() => {
+    if (!input.startsWith(tabPrefix) || input === tabPrefix) {
+      setTabCandidates([]);
+    }
+  }, [input, tabPrefix]);
 
   const submit = useCallback(() => {
     const trimmed = input.trim();
     if (!trimmed) return;
     setLocalH(prev => [trimmed, ...prev.slice(0, 49)]);
     setHistIdx(-1);
+    setTabCandidates([]);
     executeCommand(trimmed);
     setInput('');
   }, [input, executeCommand]);
 
+  const handleTab = useCallback(async (e: React.KeyboardEvent) => {
+    e.preventDefault();
+    const partial = input;
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partial })
+      });
+      const data = await res.json();
+      const candidates: string[] = data.candidates ?? [];
+
+      if (candidates.length === 0) return;
+
+      if (candidates.length === 1) {
+        // Unique match — complete it
+        const tokens = partial.split(' ');
+        tokens[tokens.length - 1] = candidates[0];
+        setInput(tokens.join(' '));
+        setTabCandidates([]);
+        setTabPrefix('');
+      } else {
+        // Find longest common prefix among candidates
+        const lastToken = partial.split(' ').pop() ?? '';
+        const basePart = lastToken.includes('/')
+          ? lastToken.substring(0, lastToken.lastIndexOf('/') + 1)
+          : '';
+        const names = candidates.map(c => c.slice(basePart.length));
+        let common = names[0];
+        for (const n of names.slice(1)) {
+          let i = 0;
+          while (i < common.length && i < n.length && common[i] === n[i]) i++;
+          common = common.slice(0, i);
+        }
+        if (common.length > lastToken.slice(basePart.length).length) {
+          const tokens = partial.split(' ');
+          tokens[tokens.length - 1] = basePart + common;
+          setInput(tokens.join(' '));
+        }
+        setTabCandidates(candidates);
+        setTabPrefix(partial);
+      }
+    } catch {
+      // Backend unreachable — fall back to simple command completion
+      const COMMANDS = ['ls', 'cd', 'pwd', 'mkdir', 'touch', 'cat', 'echo', 'rm', 'cp', 'mv',
+        'grep', 'find', 'chmod', 'wc', 'head', 'tail', 'sort', 'uniq', 'history', 'man', 'clear', 'help'];
+      const tokens = input.split(' ');
+      if (tokens.length === 1) {
+        const match = COMMANDS.find(c => c.startsWith(input));
+        if (match) setInput(match + ' ');
+      }
+    }
+  }, [input]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       submit();
+    } else if (e.key === 'Tab') {
+      handleTab(e);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
+      setTabCandidates([]);
       const nextIdx = Math.min(historyIdx + 1, localHistory.length - 1);
       setHistIdx(nextIdx);
       setInput(localHistory[nextIdx] ?? '');
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
+      setTabCandidates([]);
       const nextIdx = Math.max(historyIdx - 1, -1);
       setHistIdx(nextIdx);
       setInput(nextIdx === -1 ? '' : localHistory[nextIdx] ?? '');
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      // Simple tab: complete common commands
-      const completions = ['ls', 'cd', 'pwd', 'mkdir', 'touch', 'cat', 'echo', 'rm', 'cp', 'mv', 'grep', 'find', 'chmod', 'wc', 'head', 'tail', 'history', 'man', 'clear'];
-      const match = completions.find(c => c.startsWith(input));
-      if (match) setInput(match + ' ');
+    } else if (e.key === 'Escape') {
+      setTabCandidates([]);
     }
   };
 
@@ -60,6 +124,27 @@ export const TerminalHUD = () => {
       className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[96%] max-w-3xl pointer-events-auto z-40"
       onClick={() => inputRef.current?.focus()}
     >
+      {/* Tab completion candidates */}
+      {tabCandidates.length > 1 && (
+        <div className="mb-1 bg-[#1a1a2e]/95 border border-[#e2b96f]/50 rounded px-3 py-2 font-mono text-[11px] text-[#cdd6f4] flex flex-wrap gap-x-4 gap-y-0.5">
+          {tabCandidates.map(c => (
+            <span
+              key={c}
+              className="cursor-pointer hover:text-[#e2b96f]"
+              onClick={() => {
+                const tokens = input.split(' ');
+                tokens[tokens.length - 1] = c;
+                setInput(tokens.join(' '));
+                setTabCandidates([]);
+                inputRef.current?.focus();
+              }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="bg-[#0d1117]/95 border-2 border-[#e2b96f] rounded shadow-[4px_4px_0px_0px_rgba(0,0,0,0.7)] flex flex-col font-mono" style={{ height: '220px' }}>
 
         {/* Title bar */}

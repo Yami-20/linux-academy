@@ -13,11 +13,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global VFS instance — one per session
 vfs = VirtualFileSystem()
 
 class CommandRequest(BaseModel):
     command: str
+
+class CompletionRequest(BaseModel):
+    partial: str
 
 @app.post("/api/execute")
 async def execute_command(req: CommandRequest):
@@ -29,9 +31,13 @@ async def execute_command(req: CommandRequest):
     ]
     return result
 
+@app.post("/api/complete")
+async def complete_command(req: CompletionRequest):
+    candidates = vfs.get_completions(req.partial)
+    return {"candidates": candidates}
+
 @app.post("/api/reset")
 async def reset_game():
-    """Reset the VFS to initial state for a new game."""
     global vfs
     vfs = VirtualFileSystem()
     return {"status": "success", "message": "VFS reset"}
