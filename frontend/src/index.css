@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #0d1117;
+  -webkit-app-region: drag;
+}
+
+input, button { -webkit-app-region: no-drag; }
+
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #e2b96f44; border-radius: 2px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #e2b96f88; }
+
+canvas { display: block; }
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(-50%) translateX(-50%); }
+  50% { transform: translateY(calc(-50% - 8px)) translateX(-50%); }
+}
+.animate-bounce {
+  animation: bounce 0.6s ease-in-out infinite;
+}
